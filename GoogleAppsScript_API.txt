@@ -1,0 +1,280 @@
+// ============================================
+// ZipZap CRM API - Google Apps Script
+// ============================================
+// 1. افتح Google Sheet جديد
+// 2. روح على Extensions → Apps Script
+// 3. امسح الكود الافتراضي والصق الكود ده
+// 4. اضغط Deploy → New Deployment
+// 5. اختار Type: Web app
+// 6. Execute as: Me
+// 7. Who has access: Anyone
+// 8. اضغط Deploy وخد الـ URL
+// ============================================
+
+function doGet(e) {
+  const action = e.parameter.action;
+
+  let result = {};
+
+  try {
+    switch(action) {
+      case 'getOrders':
+        result = getSheetData('Orders');
+        break;
+      case 'getOrderItems':
+        result = getSheetData('OrderItems');
+        break;
+      case 'getCustomers':
+        result = getSheetData('Customers');
+        break;
+      case 'getProducts':
+        result = getSheetData('Products');
+        break;
+      case 'getInventory':
+        result = getSheetData('Inventory');
+        break;
+      case 'getSuppliers':
+        result = getSheetData('Suppliers');
+        break;
+      case 'getPricing':
+        result = getSheetData('Pricing');
+        break;
+      case 'getSummary':
+        result = getSheetData('Summary');
+        break;
+      case 'getAll':
+        result = {
+          orders: getSheetData('Orders'),
+          orderItems: getSheetData('OrderItems'),
+          customers: getSheetData('Customers'),
+          products: getSheetData('Products'),
+          inventory: getSheetData('Inventory'),
+          suppliers: getSheetData('Suppliers'),
+          pricing: getSheetData('Pricing'),
+          summary: getSheetData('Summary'),
+          employees: getSheetData('Employees'),
+          activities: getSheetData('ActivityLog')
+        };
+        break;
+      default:
+        result = { error: 'Unknown action: ' + action };
+    }
+  } catch (err) {
+    result = { error: err.toString() };
+  }
+
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  let result = {};
+
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+
+    switch(action) {
+      case 'addOrder':
+        result = addRow('Orders', data.data);
+        break;
+      case 'addOrderItem':
+        result = addRow('OrderItems', data.data);
+        break;
+      case 'addCustomer':
+        result = addRow('Customers', data.data);
+        break;
+      case 'addProduct':
+        result = addRow('Products', data.data);
+        break;
+      case 'addSupplier':
+        result = addRow('Suppliers', data.data);
+        break;
+      case 'addPricing':
+        result = addRow('Pricing', data.data);
+        break;
+      case 'addEmployee':
+        result = addRow('Employees', data.data);
+        break;
+      case 'addActivity':
+        result = addRow('ActivityLog', data.data);
+        break;
+      case 'updateOrder':
+        result = updateRow('Orders', 'مرجع الطلب الفريد', data.uniqueRef, data.data);
+        break;
+      case 'updateInventory':
+        result = updateRow('Inventory', 'المنتج', data.product, data.data);
+        break;
+      case 'deleteOrder':
+        result = deleteRow('Orders', 'مرجع الطلب الفريد', data.uniqueRef);
+        break;
+      case 'deleteRow':
+        result = deleteRow(data.sheet, data.keyColumn, data.keyValue);
+        break;
+      case 'updateRow':
+        result = updateRow(data.sheet, data.keyColumn, data.keyValue, data.data);
+        break;
+      default:
+        result = { error: 'Unknown action: ' + action };
+    }
+  } catch (err) {
+    result = { error: err.toString() };
+  }
+
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ===== HELPER TO FIND SHEET BY ENGLISH OR ARABIC ALIAS =====
+function findSheet(sheetName) {
+  const active = SpreadsheetApp.getActive();
+  const mapping = {
+    'Orders': ['Orders', 'الأوردرات', 'الطلبات', 'اوردرات', 'طلبات'],
+    'OrderItems': ['OrderItems', 'بنود الطلبات', 'تفاصيل الطلبات', 'البنود', 'بنود'],
+    'Customers': ['Customers', 'العملاء', 'عملاء'],
+    'Products': ['Products', 'المنتجات', 'منتجات'],
+    'Inventory': ['Inventory', 'المخزون', 'مخزون'],
+    'Suppliers': ['Suppliers', 'الموردين', 'موردين'],
+    'Pricing': ['Pricing', 'الأسعار', 'الاسعار', 'أسعار', 'اسعار', 'شرائح الأسعار'],
+    'Summary': ['Summary', 'ملخص', 'الملخص'],
+    'Employees': ['Employees', 'الموظفين', 'موظفين', 'إدارة الموظفين'],
+    'ActivityLog': ['ActivityLog', 'سجل النشاطات', 'النشاطات', 'نشاطات الموظفين']
+  };
+
+  const aliases = mapping[sheetName] || [sheetName];
+  for (let i = 0; i < aliases.length; i++) {
+    const sheet = active.getSheetByName(aliases[i]);
+    if (sheet) return sheet;
+  }
+  return null;
+}
+
+// ===== READ FUNCTIONS =====
+function getSheetData(sheetName) {
+  const sheet = findSheet(sheetName);
+  if (!sheet) return [];
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+
+  const headers = data[0];
+  const rows = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    for (let j = 0; j < headers.length; j++) {
+      const key = headers[j].toString().trim();
+      let value = data[i][j];
+
+      // Convert dates
+      if (value instanceof Date) {
+        value = Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      }
+
+      row[key] = value;
+    }
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+// ===== WRITE FUNCTIONS =====
+function addRow(sheetName, data) {
+  let sheet = findSheet(sheetName);
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActive().insertSheet(sheetName);
+    const initialHeaders = Object.keys(data);
+    sheet.appendRow(initialHeaders);
+  }
+
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+  const row = [];
+  
+  // Case-insensitive payload lookup
+  const dataLower = {};
+  for (let k in data) {
+    dataLower[k.toString().trim().toLowerCase()] = data[k];
+  }
+
+  for (let i = 0; i < headers.length; i++) {
+    const key = headers[i].toString().trim().toLowerCase();
+    row.push(dataLower[key] !== undefined ? dataLower[key] : '');
+  }
+
+  sheet.appendRow(row);
+  return { success: true, message: 'Row added to ' + sheet.getName() };
+}
+
+function updateRow(sheetName, keyColumn, keyValue, data) {
+  const sheet = findSheet(sheetName);
+  if (!sheet) return { error: 'Sheet not found: ' + sheetName };
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const allData = sheet.getDataRange().getValues();
+
+  let keyColIndex = -1;
+  for (let i = 0; i < headers.length; i++) {
+    if (headers[i].toString().trim().toLowerCase() === keyColumn.toLowerCase()) {
+      keyColIndex = i;
+      break;
+    }
+  }
+
+  if (keyColIndex === -1) return { error: 'Key column not found: ' + keyColumn };
+
+  // Case-insensitive payload lookup
+  const dataLower = {};
+  for (let k in data) {
+    dataLower[k.toString().trim().toLowerCase()] = data[k];
+  }
+
+  for (let i = 1; i < allData.length; i++) {
+    if (allData[i][keyColIndex].toString().toLowerCase() === keyValue.toString().toLowerCase()) {
+      const rowNum = i + 1;
+
+      for (let j = 0; j < headers.length; j++) {
+        const header = headers[j].toString().trim().toLowerCase();
+        if (dataLower[header] !== undefined) {
+          sheet.getRange(rowNum, j + 1).setValue(dataLower[header]);
+        }
+      }
+
+      return { success: true, message: 'Row updated in ' + sheet.getName() };
+    }
+  }
+
+  return { error: 'Row not found with ' + keyColumn + ' = ' + keyValue };
+}
+
+function deleteRow(sheetName, keyColumn, keyValue) {
+  const sheet = findSheet(sheetName);
+  if (!sheet) return { error: 'Sheet not found: ' + sheetName };
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const allData = sheet.getDataRange().getValues();
+
+  let keyColIndex = -1;
+  for (let i = 0; i < headers.length; i++) {
+    if (headers[i].toString().trim().toLowerCase() === keyColumn.toLowerCase()) {
+      keyColIndex = i;
+      break;
+    }
+  }
+
+  if (keyColIndex === -1) return { error: 'Key column not found' };
+
+  for (let i = 1; i < allData.length; i++) {
+    if (allData[i][keyColIndex].toString().toLowerCase() === keyValue.toString().toLowerCase()) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: 'Row deleted' };
+    }
+  }
+
+  return { error: 'Row not found' };
+}
