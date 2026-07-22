@@ -111,6 +111,9 @@ function doPost(e) {
       case 'deleteRow':
         result = deleteRow(data.sheet, data.keyColumn, data.keyValue);
         break;
+      case 'deleteOrderItems':
+        result = deleteOrderItems(data.uniqueRef);
+        break;
       case 'updateRow':
         result = updateRow(data.sheet, data.keyColumn, data.keyValue, data.data);
         break;
@@ -277,4 +280,32 @@ function deleteRow(sheetName, keyColumn, keyValue) {
   }
 
   return { error: 'Row not found' };
+}
+
+function deleteOrderItems(uniqueRef) {
+  const sheet = findSheet('OrderItems');
+  if (!sheet) return { error: 'Sheet not found: OrderItems' };
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const allData = sheet.getDataRange().getValues();
+
+  let keyColIndex = -1;
+  for (let i = 0; i < headers.length; i++) {
+    if (headers[i].toString().trim().toLowerCase() === 'مرجع الطلب') {
+      keyColIndex = i;
+      break;
+    }
+  }
+
+  if (keyColIndex === -1) return { error: 'Key column "مرجع الطلب" not found' };
+
+  let deleteCount = 0;
+  for (let i = allData.length - 1; i >= 1; i--) {
+    if (allData[i][keyColIndex].toString().toLowerCase() === uniqueRef.toString().toLowerCase()) {
+      sheet.deleteRow(i + 1);
+      deleteCount++;
+    }
+  }
+
+  return { success: true, message: 'Deleted ' + deleteCount + ' rows' };
 }

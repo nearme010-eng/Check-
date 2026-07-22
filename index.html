@@ -228,6 +228,40 @@ tr:hover{background:rgba(255,107,53,0.03)}
 <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('newOrderModal')">إلغاء</button><button class="btn btn-primary" onclick="saveNewOrder()">حفظ الطلب</button></div>
 </div>
 </div>
+
+<!-- editOrderModal -->
+<div class="modal-overlay" id="editOrderModal">
+<div class="modal">
+<div class="modal-header"><h3 class="modal-title">تعديل الطلب</h3><button class="modal-close" onclick="closeModal('editOrderModal')">&times;</button></div>
+<div class="modal-body">
+<form id="editOrderForm">
+<input type="hidden" id="editOrderUniqueRef">
+<div class="form-row">
+  <div class="form-group"><label class="form-label">العميل</label><input type="text" class="form-input" id="editOrderCustomer" readonly style="background:var(--light);"></div>
+  <div class="form-group"><label class="form-label">رقم الطلب</label><input type="number" class="form-input" id="editOrderId" readonly style="background:var(--light);"></div>
+</div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">تاريخ المناسبة</label><input type="date" class="form-input" id="editOrderDate" required></div>
+  <div class="form-group"><label class="form-label">يوم المناسبة</label><select class="form-select" id="editOrderDay"><option>السبت</option><option>الأحد</option><option>الاثنين</option><option>الثلاثاء</option><option>الأربعاء</option><option>الخميس</option><option>الجمعة</option></select></div>
+</div>
+<div class="form-group"><label class="form-label">العنوان</label><input type="text" class="form-input" id="editOrderAddress"></div>
+<div class="form-group"><label class="form-label">المنتجات</label>
+  <div id="editOrderItemsContainer"></div>
+  <button type="button" class="btn btn-secondary" style="margin-top:10px" onclick="addEditItemRow()"><i class="fas fa-plus"></i> إضافة منتج</button>
+</div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">تكلفة النقل</label><input type="number" class="form-input" id="editOrderDelivery" value="0" onchange="calcEditOrderTotal()"></div>
+  <div class="form-group"><label class="form-label">الخصم</label><input type="number" class="form-input" id="editOrderDiscount" value="0" onchange="calcEditOrderTotal()"></div>
+</div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">المدفوع</label><input type="number" class="form-input" id="editOrderPaid" value="0" onchange="calcEditOrderTotal()"></div>
+  <div class="form-group"><label class="form-label">إجمالي الطلب</label><input type="number" class="form-input" id="editOrderTotal" readonly style="font-weight:800;font-size:18px"></div>
+</div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('editOrderModal')">إلغاء</button><button class="btn btn-primary" onclick="saveEditedOrder()">حفظ التعديلات</button></div>
+</div>
+</div>
 <div class="modal-overlay" id="newCustomerModal">
 <div class="modal">
 <div class="modal-header"><h3 class="modal-title">عميل جديد</h3><button class="modal-close" onclick="closeModal('newCustomerModal')">&times;</button></div>
@@ -791,7 +825,7 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 function renderDashboard(){const alertsDiv=document.getElementById('dashboardAlerts');const now = new Date();const currentYear = now.getFullYear();const currentMonth = now.getMonth();const totalOrders = CRM_DATA.orders.length;const thisMonthOrders = CRM_DATA.orders.filter(o => {if (!o.event_date) return false;const d = new Date(o.event_date);return d.getFullYear() === currentYear && d.getMonth() === currentMonth;});const thisMonthCount = thisMonthOrders.length;const totalNet = CRM_DATA.orders.reduce((sum, o) => {if (o.status.main === 'cancelled') return sum;return sum + (o.financials.net || 0);}, 0);const thisMonthNet = thisMonthOrders.reduce((sum, o) => {if (o.status.main === 'cancelled') return sum;return sum + (o.financials.net || 0);}, 0);const pendingPaidOrders = CRM_DATA.orders.filter(o => o.status.main !== 'cancelled' && o.financials.remaining > 0);const pendingPaidCount = pendingPaidOrders.length;const totalRemaining = CRM_DATA.orders.reduce((sum, o) => {if (o.status.main === 'cancelled') return sum;return sum + (o.financials.remaining || 0);}, 0);const totalPaid = CRM_DATA.orders.reduce((sum, o) => {if (o.status.main === 'cancelled') return sum;return sum + (o.financials.paid || 0);}, 0);const lowStockCount = CRM_DATA.inventory.filter(i => i.available <= 5).length;const criticalCount = CRM_DATA.alerts.critical.length;const warningCount = CRM_DATA.alerts.warning.length;const totalAlerts = criticalCount + warningCount;const domTotalOrders = document.getElementById('statTotalOrders');const domNetProfit = document.getElementById('statNetProfit');const domPending = document.getElementById('statPending');const domAlerts = document.getElementById('statAlerts');const domThisMonth = document.getElementById('statThisMonth');const domFinanceTotal = document.getElementById('financeTotal');const domFinanceMonth = document.getElementById('financeMonth');const domFinancePending = document.getElementById('financePending');const domFinancePaid = document.getElementById('financePaid');if(domTotalOrders) domTotalOrders.innerText = totalOrders;if(domNetProfit) domNetProfit.innerText = totalNet.toLocaleString() + ' ج.م';if(domPending) domPending.innerText = pendingPaidCount;if(domAlerts) domAlerts.innerText = totalAlerts;if(domThisMonth) domThisMonth.innerText = thisMonthCount;if(domFinanceTotal) domFinanceTotal.innerText = totalNet.toLocaleString() + ' ج.م';if(domFinanceMonth) domFinanceMonth.innerText = thisMonthNet.toLocaleString() + ' ج.م';if(domFinancePending) domFinancePending.innerText = totalRemaining.toLocaleString() + ' ج.م';if(domFinancePaid) domFinancePaid.innerText = totalPaid.toLocaleString() + ' ج.م';let html='';CRM_DATA.alerts.critical.forEach(a=>{html+=`<div class="alert alert-critical"><i class="fas fa-exclamation-circle alert-icon"></i><div><strong>${a.type==='order_id_conflict'?'تعارض Order ID':'إرجاع متأخر'}</strong><p style="margin-top:4px;font-size:13px">${a.customers?a.customers.join(' و ')+' نفس الرقم '+a.order_id:a.customer+' - '+a.product} - ${a.action}</p></div></div>`});CRM_DATA.alerts.warning.slice(0,2).forEach(a=>{html+=`<div class="alert alert-warning"><i class="fas fa-exclamation-triangle alert-icon"></i><div><strong>${a.type==='low_stock'?'مخزون منخفض':'فلوس مستحقة'}</strong><p style="margin-top:4px;font-size:13px">${a.product||a.customer+' ('+a.amount+' ج.م)'} - ${a.action}</p></div></div>`});alertsDiv.innerHTML=html;const timeline=document.getElementById('recentOrdersTimeline');const sorted=[...CRM_DATA.orders].sort((a,b)=>new Date(b.event_date)-new Date(a.event_date));timeline.innerHTML=sorted.slice(0,5).map(o=>`<div class="timeline-item"><div class="timeline-date">${o.event_date} - ${o.event_day}</div><div class="timeline-title">طلب #${o.order_id} - ${o.customer.name}</div><div class="timeline-desc">${o.items.map(i=>i.product+' x'+i.qty).join(' + ')||'لا يوجد منتجات'} - ${o.financials.total} ج.م</div></div>`).join('');const invDiv=document.getElementById('inventorySummary');invDiv.innerHTML=CRM_DATA.inventory.map(i=>{const pct=Math.round((i.available/i.total)*100);const color=i.status==='low'?'stock-low':(i.status==='medium'?'stock-medium':'stock-good');return `<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-weight:700">${i.product}</span><span style="font-weight:700;color:${i.status==='low'?'var(--danger)':(i.status==='medium'?'var(--warning)':'var(--success)')}">${i.available} / ${i.total}</span></div><div class="stock-indicator"><div class="stock-bar ${color}" style="width:${pct}%"></div></div></div>`}).join('')}
 function renderOrders(){const tbody=document.getElementById('ordersTableBody');tbody.innerHTML=CRM_DATA.orders.map(o=>{const statusClass=o.status.main==='completed'?'status-completed':o.status.main==='confirmed'?'status-confirmed':o.status.main==='pending'?'status-pending':o.status.main==='overdue'?'status-overdue':o.status.main==='cancelled'?'status-cancelled':o.status.main==='contract_pending'?'status-contract':'';const statusText=o.status.main==='completed'?'✔ تم التنفيذ':o.status.main==='confirmed'?'مؤكد':o.status.main==='pending'?'معلق':o.status.main==='overdue'?'متأخر':o.status.main==='cancelled'?'ملغي':o.status.main==='contract_pending'?'في انتظار العقد':o.status.main==='prepaid_no_items'?'دفع مقدم':o.status.main;return `<tr><td><strong>#${o.order_id}</strong><br><small style="color:var(--gray)">${o.unique_ref}</small></td><td><strong>${o.customer.name}</strong><br><small>${o.customer.phone}</small></td><td>${o.event_date}<br><small>${o.event_day}</small></td><td>${o.items.map(i=>i.product+' x'+i.qty).join('<br>')||'-'}</td><td><strong>${o.financials.total}</strong> ج.م</td><td style="color:${o.financials.remaining>0?'var(--danger)':'var(--success)'};font-weight:700">${o.financials.remaining} ج.م</td><td><span class="${statusClass}">${statusText}</span></td><td><div style="display:flex;gap:6px;"><button class="btn btn-info" style="padding:6px 12px;font-size:12px" onclick="viewOrder('${o.unique_ref}')"><i class="fas fa-eye"></i></button><button class="btn btn-danger" style="padding:6px 12px;font-size:12px;background:var(--danger)" onclick="deleteOrder('${o.unique_ref}')"><i class="fas fa-trash"></i></button></div></td></tr>`}).join('');const custSelect=document.getElementById('orderCustomer');custSelect.innerHTML='<option value="">اختر عميل</option>'+CRM_DATA.customers.map(c=>`<option value="${c.phone}">${c.name} - ${c.phone}</option>`).join('');document.querySelectorAll('.product-select').forEach(s=>{s.innerHTML='<option value="">اختر منتج</option>'+CRM_DATA.products.map(p=>`<option value="${p.name}" data-type="${p.type}">${p.name}</option>`).join('')})}
 function filterOrders(){const search=document.getElementById('orderSearch').value.toLowerCase();const status=document.getElementById('orderStatusFilter').value;const rows=document.querySelectorAll('#ordersTableBody tr');rows.forEach(row=>{const text=row.textContent.toLowerCase();const rowStatus=row.querySelector('td:nth-child(7)').textContent.trim();let statusMatch=!status||(status==='completed'&&rowStatus.includes('تم التنفيذ'))||(status==='confirmed'&&rowStatus.includes('مؤكد'))||(status==='pending'&&rowStatus.includes('معلق'))||(status==='overdue'&&rowStatus.includes('متأخر'))||(status==='cancelled'&&rowStatus.includes('ملغي'));row.style.display=(text.includes(search)&&statusMatch)?'':'none'})}
-function viewOrder(ref){const order=CRM_DATA.orders.find(o=>o.unique_ref===ref);if(!order)return;currentOrder=order;document.getElementById('viewOrderTitle').innerHTML=`طلب #${order.order_id} - ${order.customer.name}`;let itemsHtml=order.items.length?`<table style="margin-bottom:20px"><thead><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th>الإرجاع</th></tr></thead><tbody>${order.items.map(i=>`<tr><td>${i.product}</td><td>${i.qty}</td><td>${i.unit_price} ج.م</td><td>${i.total} ج.م</td><td>${i.returned?'<span class="badge badge-success">رجع</span>':'<span class="badge badge-warning">عند العميل</span>'} ${i.condition?'<br><small>'+i.condition+'</small>':''}</td></tr>`).join('')}</tbody></table>`:'<p style="color:var(--gray);margin-bottom:20px">لا يوجد منتجات في هذا الطلب</p>';document.getElementById('viewOrderContent').innerHTML=`<div class="grid-2"><div><h4 style="margin-bottom:12px;color:var(--primary)"><i class="fas fa-user"></i> بيانات العميل</h4><p><strong>الاسم:</strong> ${order.customer.name}</p><p><strong>التليفون:</strong> ${order.customer.phone}</p><p><strong>العنوان:</strong> ${order.customer.address||'-'}</p><p><strong>تاريخ المناسبة:</strong> ${order.event_date} (${order.event_day})</p><p><strong>الأيام المتبقية:</strong> <span style="color:${order.status.days_left<0?'var(--danger)':(order.status.days_left<=3?'var(--warning)':'var(--success)')};font-weight:700">${order.status.days_left}</span></p><p style="margin-top:8px"><strong>حالة الطلب:</strong> <select class="form-select" style="display:inline-block; width:auto; padding:4px 8px; font-size:13px; margin-right:8px;" onchange="updateOrderStatusInline('${order.unique_ref}', this.value)"><option value="معلق" ${order.status.main === 'pending' ? 'selected' : ''}>معلق</option><option value="مؤكد" ${order.status.main === 'confirmed' ? 'selected' : ''}>مؤكد</option><option value="تم التنفيذ" ${order.status.main === 'completed' ? 'selected' : ''}>تم التنفيذ</option><option value="متأخر" ${order.status.main === 'overdue' ? 'selected' : ''}>متأخر</option><option value="ملغي" ${order.status.main === 'cancelled' ? 'selected' : ''}>ملغي</option></select></p></div><div><h4 style="margin-bottom:12px;color:var(--primary)"><i class="fas fa-money-bill-wave"></i> البيانات المالية</h4><p><strong>إجمالي المنتجات:</strong> ${order.financials.products} ج.م</p><p><strong>النقل:</strong> ${order.financials.delivery} ج.م</p><p><strong>الخصم:</strong> ${order.financials.discount} ج.م</p><p><strong>الإجمالي:</strong> <span style="font-size:18px;font-weight:800">${order.financials.total} ج.م</span></p><p><strong>المدفوع:</strong> <span style="color:var(--success);font-weight:700">${order.financials.paid} ج.م</span></p><p><strong>المتبقي:</strong> <span style="color:${order.financials.remaining>0?'var(--danger)':'var(--success)'};font-weight:700">${order.financials.remaining} ج.م</span></p><p><strong>الصافي:</strong> <span style="color:var(--primary);font-weight:800">${order.financials.net} ج.م</span></p></div></div><h4 style="margin:20px 0 12px;color:var(--primary)"><i class="fas fa-boxes"></i> المنتجات</h4>${itemsHtml}${order.status.conflict?`<div class="alert alert-critical" style="margin-top:16px"><i class="fas fa-exclamation-circle alert-icon"></i><div><strong>تنبيه تعارض:</strong> ${order.status.conflict}</div></div>`:''}${order.status.notes?`<div class="alert alert-info" style="margin-top:16px"><i class="fas fa-info-circle alert-icon"></i><div>${order.status.notes}</div></div>`:''}`;document.querySelector('#viewOrderModal .modal-footer').innerHTML=`<button class="btn btn-secondary" onclick="closeModal('viewOrderModal')">إغلاق</button><button class="btn btn-primary" onclick="printInvoice('${order.unique_ref}')"><i class="fas fa-print"></i> طباعة الفاتورة</button><button class="btn btn-success" style="background:#25d366;border-color:#25d366" onclick="sendInvoiceWhatsApp('${order.unique_ref}')"><i class="fab fa-whatsapp"></i> إرسال واتس آب</button><button class="btn btn-danger" style="background:var(--danger)" onclick="deleteOrder('${order.unique_ref}')"><i class="fas fa-trash"></i> حذف الطلب</button>`;openModal('viewOrderModal')}
+function viewOrder(ref){const order=CRM_DATA.orders.find(o=>o.unique_ref===ref);if(!order)return;currentOrder=order;document.getElementById('viewOrderTitle').innerHTML=`طلب #${order.order_id} - ${order.customer.name}`;let itemsHtml=order.items.length?`<table style="margin-bottom:20px"><thead><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th>الإرجاع</th></tr></thead><tbody>${order.items.map(i=>`<tr><td>${i.product}</td><td>${i.qty}</td><td>${i.unit_price} ج.م</td><td>${i.total} ج.م</td><td>${i.returned?'<span class="badge badge-success">رجع</span>':'<span class="badge badge-warning">عند العميل</span>'} ${i.condition?'<br><small>'+i.condition+'</small>':''}</td></tr>`).join('')}</tbody></table>`:'<p style="color:var(--gray);margin-bottom:20px">لا يوجد منتجات في هذا الطلب</p>';document.getElementById('viewOrderContent').innerHTML=`<div class="grid-2"><div><h4 style="margin-bottom:12px;color:var(--primary)"><i class="fas fa-user"></i> بيانات العميل</h4><p><strong>الاسم:</strong> ${order.customer.name}</p><p><strong>التليفون:</strong> ${order.customer.phone}</p><p><strong>العنوان:</strong> ${order.customer.address||'-'}</p><p><strong>تاريخ المناسبة:</strong> ${order.event_date} (${order.event_day})</p><p><strong>الأيام المتبقية:</strong> <span style="color:${order.status.days_left<0?'var(--danger)':(order.status.days_left<=3?'var(--warning)':'var(--success)')};font-weight:700">${order.status.days_left}</span></p><p style="margin-top:8px"><strong>حالة الطلب:</strong> <select class="form-select" style="display:inline-block; width:auto; padding:4px 8px; font-size:13px; margin-right:8px;" onchange="updateOrderStatusInline('${order.unique_ref}', this.value)"><option value="معلق" ${order.status.main === 'pending' ? 'selected' : ''}>معلق</option><option value="مؤكد" ${order.status.main === 'confirmed' ? 'selected' : ''}>مؤكد</option><option value="تم التنفيذ" ${order.status.main === 'completed' ? 'selected' : ''}>تم التنفيذ</option><option value="متأخر" ${order.status.main === 'overdue' ? 'selected' : ''}>متأخر</option><option value="ملغي" ${order.status.main === 'cancelled' ? 'selected' : ''}>ملغي</option></select></p></div><div><h4 style="margin-bottom:12px;color:var(--primary)"><i class="fas fa-money-bill-wave"></i> البيانات المالية</h4><p><strong>إجمالي المنتجات:</strong> ${order.financials.products} ج.م</p><p><strong>النقل:</strong> ${order.financials.delivery} ج.م</p><p><strong>الخصم:</strong> ${order.financials.discount} ج.م</p><p><strong>الإجمالي:</strong> <span style="font-size:18px;font-weight:800">${order.financials.total} ج.م</span></p><p><strong>المدفوع:</strong> <span style="color:var(--success);font-weight:700">${order.financials.paid} ج.م</span></p><p><strong>المتبقي:</strong> <span style="color:${order.financials.remaining>0?'var(--danger)':'var(--success)'};font-weight:700">${order.financials.remaining} ج.م</span></p><p><strong>الصافي:</strong> <span style="color:var(--primary);font-weight:800">${order.financials.net} ج.م</span></p></div></div><h4 style="margin:20px 0 12px;color:var(--primary)"><i class="fas fa-boxes"></i> المنتجات</h4>${itemsHtml}${order.status.conflict?`<div class="alert alert-critical" style="margin-top:16px"><i class="fas fa-exclamation-circle alert-icon"></i><div><strong>تنبيه تعارض:</strong> ${order.status.conflict}</div></div>`:''}${order.status.notes?`<div class="alert alert-info" style="margin-top:16px"><i class="fas fa-info-circle alert-icon"></i><div>${order.status.notes}</div></div>`:''}`;document.querySelector('#viewOrderModal .modal-footer').innerHTML=`<button class="btn btn-secondary" onclick="closeModal('viewOrderModal')">إغلاق</button><button class="btn btn-warning edit-action" style="background:var(--warning);border-color:var(--warning);color:#fff;" onclick="openEditOrder('${order.unique_ref}')"><i class="fas fa-edit"></i> تعديل</button><button class="btn btn-primary" onclick="printInvoice('${order.unique_ref}')"><i class="fas fa-print"></i> طباعة الفاتورة</button><button class="btn btn-success" style="background:#25d366;border-color:#25d366" onclick="sendInvoiceWhatsApp('${order.unique_ref}')"><i class="fab fa-whatsapp"></i> إرسال واتس آب</button><button class="btn btn-danger" style="background:var(--danger)" onclick="deleteOrder('${order.unique_ref}')"><i class="fas fa-trash"></i> حذف الطلب</button>`;openModal('viewOrderModal');applyUserPermissions();}
 function renderCustomers(){const grid=document.getElementById('customersGrid');grid.innerHTML=CRM_DATA.customers.map(c=>`<div class="customer-card" onclick="viewCustomer('${c.phone}')"><div class="customer-avatar">${c.name.charAt(0)}</div><h4 style="margin-bottom:4px">${c.name}</h4><p style="color:var(--gray);font-size:13px;margin-bottom:8px"><i class="fas fa-phone"></i> ${c.phone}</p><p style="color:var(--gray);font-size:13px;margin-bottom:12px"><i class="fas fa-map-marker-alt"></i> ${c.address||'-'}</p><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge badge-primary">${c.total_orders} طلب</span><span class="badge badge-success">${c.total_paid} ج.م</span>${c.total_remaining>0?`<span class="badge badge-danger">متبقي ${c.total_remaining}</span>`:''}</div></div>`).join('')}
 function filterCustomers(){const search=document.getElementById('customerSearch').value.toLowerCase();document.querySelectorAll('.customer-card').forEach(card=>{card.style.display=card.textContent.toLowerCase().includes(search)?'':'none'})}
 function viewCustomer(phone){const c=CRM_DATA.customers.find(x=>x.phone===phone);if(!c)return;let ordersHtml=c.orders.map(o=>`<div style="padding:10px;background:var(--light);border-radius:8px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><strong>طلب #${o.order_id}</strong><span style="color:var(--gray);font-size:12px">${o.event_date}</span></div><p style="font-size:13px;margin-top:4px">${o.items.join(' + ')}</p><span class="badge ${o.status==='completed'?'badge-success':(o.status==='overdue'?'badge-danger':'badge-warning')}">${o.status}</span></div>`).join('');document.getElementById('viewOrderTitle').innerHTML=`العميل: ${c.name}`;document.getElementById('viewOrderContent').innerHTML=`<div class="grid-2"><div><p><strong>التليفون:</strong> ${c.phone}</p><p><strong>العنوان:</strong> ${c.address||'-'}</p><p><strong>عدد الطلبات:</strong> ${c.total_orders}</p></div><div><p><strong>إجمالي المصروف:</strong> ${c.total_spent} ج.م</p><p><strong>المدفوع:</strong> ${c.total_paid} ج.م</p><p><strong>المتبقي:</strong> <span style="color:${c.total_remaining>0?'var(--danger)':'var(--success)'};font-weight:700">${c.total_remaining} ج.م</span></p></div></div><h4 style="margin:20px 0 12px">الطلبات</h4>${ordersHtml}`;document.querySelector('#viewOrderModal .modal-footer').innerHTML=`<button class="btn btn-secondary" onclick="closeModal('viewOrderModal')">إغلاق</button><button class="btn btn-danger" style="background:var(--danger)" onclick="deleteCustomer('${c.phone}')"><i class="fas fa-trash"></i> حذف العميل</button>`;openModal('viewOrderModal')}
@@ -2007,6 +2041,232 @@ async function deleteEmployee(username) {
   renderEmployees();
   logActivity('قام بحذف موظف باسم: ' + username);
   alert('تم حذف الموظف بنجاح!');
+}
+
+function addEditItemRow(productName = '', qty = 1, price = '') {
+  const container = document.getElementById('editOrderItemsContainer');
+  if(!container) return;
+  const row = document.createElement('div');
+  row.className = 'form-row item-row';
+  row.style.alignItems = 'center';
+  row.innerHTML = `
+    <div class="form-group" style="flex:2; margin-bottom:0">
+      <select class="form-select product-select" onchange="updateEditPrice(this)">
+        <option value="">اختر منتج</option>
+        ${CRM_DATA.products.map(p => `<option value="${p.name}" data-type="${p.type}" ${p.name === productName ? 'selected' : ''}>${p.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" style="flex:1; margin-bottom:0">
+      <input type="number" class="form-input qty-input" placeholder="الكمية" min="1" value="${qty}" onchange="calcEditItemTotal(this)">
+    </div>
+    <div class="form-group" style="flex:1; margin-bottom:0">
+      <input type="number" class="form-input price-input" placeholder="السعر" value="${price}" readonly>
+    </div>
+    <div class="form-group" style="flex:1; margin-bottom:0">
+      <input type="number" class="form-input total-input" placeholder="الإجمالي" value="${qty * (parseFloat(price) || 0)}" readonly>
+    </div>
+    <div class="form-group" style="flex:0.5; display:flex; align-items:center; justify-content:center; margin-bottom:0">
+      <button type="button" class="btn btn-danger" style="background:var(--danger); padding:6px 10px;" onclick="this.closest('.item-row').remove(); calcEditOrderTotal();"><i class="fas fa-trash"></i></button>
+    </div>
+  `;
+  container.appendChild(row);
+}
+
+function updateEditPrice(select) {
+  const product = select.value;
+  const row = select.closest('.item-row');
+  const qtyInput = row.querySelector('.qty-input');
+  const priceInput = row.querySelector('.price-input');
+  if(!product) return;
+  const qty = parseInt(qtyInput.value) || 1;
+  const tier = CRM_DATA.pricing.find(p => p.product === product && qty >= p.min && qty <= p.max);
+  priceInput.value = tier ? tier.price : '';
+  calcEditItemTotal(qtyInput);
+}
+
+function calcEditItemTotal(input) {
+  const row = input.closest('.item-row');
+  const qty = parseInt(row.querySelector('.qty-input').value) || 0;
+  const price = parseFloat(row.querySelector('.price-input').value) || 0;
+  row.querySelector('.total-input').value = qty * price;
+  calcEditOrderTotal();
+}
+
+function calcEditOrderTotal() {
+  let productsTotal = 0;
+  document.querySelectorAll('#editOrderItemsContainer .total-input').forEach(i => {
+    productsTotal += parseFloat(i.value) || 0;
+  });
+  const delivery = parseFloat(document.getElementById('editOrderDelivery').value) || 0;
+  const discount = parseFloat(document.getElementById('editOrderDiscount').value) || 0;
+  const total = productsTotal + delivery - discount;
+  document.getElementById('editOrderTotal').value = total;
+}
+
+function openEditOrder(ref) {
+  const order = CRM_DATA.orders.find(o => o.unique_ref === ref);
+  if(!order) return;
+
+  closeModal('viewOrderModal');
+  
+  document.getElementById('editOrderUniqueRef').value = order.unique_ref;
+  document.getElementById('editOrderCustomer').value = order.customer.name;
+  document.getElementById('editOrderId').value = order.order_id;
+  document.getElementById('editOrderDate').value = order.event_date;
+  document.getElementById('editOrderDay').value = order.event_day;
+  document.getElementById('editOrderAddress').value = order.customer.address || '';
+  document.getElementById('editOrderDelivery').value = order.financials.delivery;
+  document.getElementById('editOrderDiscount').value = order.financials.discount;
+  document.getElementById('editOrderPaid').value = order.financials.paid;
+  document.getElementById('editOrderTotal').value = order.financials.total;
+
+  const container = document.getElementById('editOrderItemsContainer');
+  container.innerHTML = '';
+  
+  if(order.items && order.items.length) {
+    order.items.forEach(item => {
+      addEditItemRow(item.product, item.qty, item.unit_price);
+    });
+  } else {
+    addEditItemRow();
+  }
+
+  const dateInput = document.getElementById('editOrderDate');
+  if (dateInput) {
+    dateInput.onchange = function() {
+      const dateVal = this.value;
+      if(!dateVal) return;
+      const d = new Date(dateVal);
+      const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      const dayName = dayNames[d.getDay()];
+      document.getElementById('editOrderDay').value = dayName;
+    };
+  }
+
+  openModal('editOrderModal');
+}
+
+async function saveEditedOrder() {
+  const uniqueRef = document.getElementById('editOrderUniqueRef').value;
+  const order = CRM_DATA.orders.find(o => o.unique_ref === uniqueRef);
+  if(!order) return;
+
+  const date = document.getElementById('editOrderDate').value;
+  const day = document.getElementById('editOrderDay').value;
+  const address = document.getElementById('editOrderAddress').value;
+  const delivery = parseFloat(document.getElementById('editOrderDelivery').value) || 0;
+  const discount = parseFloat(document.getElementById('editOrderDiscount').value) || 0;
+  const paid = parseFloat(document.getElementById('editOrderPaid').value) || 0;
+  const total = parseFloat(document.getElementById('editOrderTotal').value) || 0;
+
+  const items = [];
+  document.querySelectorAll('#editOrderItemsContainer .item-row').forEach(row => {
+    const product = row.querySelector('.product-select').value;
+    const qty = parseInt(row.querySelector('.qty-input').value);
+    const price = parseFloat(row.querySelector('.price-input').value);
+    const itemTotal = parseFloat(row.querySelector('.total-input').value);
+    if(product && qty) {
+      items.push({product, qty, unit_price: price, total: itemTotal, returned: false, condition: null});
+    }
+  });
+
+  const itemsSummary = items.map(i => `${i.product} x${i.qty}`).join(' + ');
+
+  let supplierCost = 0;
+  items.forEach(item => {
+    const prodInfo = CRM_DATA.products.find(p => p.name === item.product);
+    if(prodInfo && prodInfo.type === 'supplier') {
+      const tier = CRM_DATA.pricing.find(p => p.product === item.product && item.qty >= p.min && item.qty <= p.max);
+      const unitCost = tier ? tier.cost : 0;
+      supplierCost += unitCost * item.qty;
+    }
+  });
+  const net = total - supplierCost - delivery;
+
+  const deleteItemsPayload = {
+    action: 'deleteOrderItems',
+    uniqueRef: uniqueRef
+  };
+
+  const updateOrderPayload = {
+    action: 'updateRow',
+    sheet: 'Orders',
+    keyColumn: 'مرجع الطلب الفريد',
+    keyValue: uniqueRef,
+    data: {
+      "اليوم": day,
+      "تاريخ المناسبة": date,
+      "العنوان": address,
+      "المنتجات (ملخص)": itemsSummary,
+      "إجمالي المنتجات": items.reduce((a,b) => a + b.total, 0),
+      "تكلفة النقل": delivery,
+      "الخصم": discount,
+      "إجمالي الطلب": total,
+      "المدفوع": paid,
+      "المتبقي": total - paid,
+      "تكلفة الموردين": supplierCost,
+      "الصافي": net
+    }
+  };
+
+  try {
+    await fetch(API_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(deleteItemsPayload)
+    });
+
+    await fetch(API_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(updateOrderPayload)
+    });
+
+    for (let item of items) {
+      const itemPayload = {
+        action: 'addOrderItem',
+        data: {
+          "مرجع الطلب": uniqueRef,
+          "Order ID": order.order_id,
+          "اسم العميل": order.customer.name,
+          "تاريخ المناسبة": date,
+          "المنتج": item.product,
+          "الكمية": item.qty,
+          "سعر الوحدة للعميل": item.unit_price,
+          "إجمالي للعميل": item.total,
+          "حالة الإرجاع": "عند العميل"
+        }
+      };
+      await fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(itemPayload)
+      });
+    }
+
+  } catch(e) { console.error('Save Edit Error:', e); }
+
+  order.event_date = date;
+  order.event_day = day;
+  order.customer.address = address;
+  order.items = items;
+  order.financials.products = items.reduce((a,b) => a + b.total, 0);
+  order.financials.delivery = delivery;
+  order.financials.discount = discount;
+  order.financials.total = total;
+  order.financials.paid = paid;
+  order.financials.remaining = total - paid;
+  order.financials.supplier_cost = supplierCost;
+  order.financials.net = net;
+
+  closeModal('editOrderModal');
+  renderOrders();
+  renderDashboard();
+  logActivity('قام بتعديل وتحديث تفاصيل الطلب رقم #' + order.order_id + ' للعميل ' + order.customer.name);
+  alert('تم حفظ تعديلات الطلب بنجاح ومزامنتها مع Google Sheets!');
 }
 
 document.addEventListener('DOMContentLoaded',function(){
